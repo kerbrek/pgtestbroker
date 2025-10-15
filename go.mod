@@ -1,3 +1,3 @@
-module github.com/rueian/pgbroker
+module github.com/kerbrek/pgtestbroker
 
 go 1.12

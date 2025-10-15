@@ -4,8 +4,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/rueian/pgbroker/backend"
-	"github.com/rueian/pgbroker/message"
+	"github.com/kerbrek/pgtestbroker/backend"
+	"github.com/kerbrek/pgtestbroker/message"
 )
 
 type AuthPhase int
