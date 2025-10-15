@@ -32,12 +32,18 @@ type Server struct {
 	Splice                        bool
 	TLSConfig                     *tls.Config
 
+	LogStartupMessage func(msg message.Reader) // log CancelRequest/SSLRequest/StartupMessage messages
+
 	wg      sync.WaitGroup
 	ln      net.Listener
 	clients sync.Map
 }
 
 func (s *Server) Serve(ln net.Listener) error {
+	if s.LogStartupMessage == nil {
+		s.LogStartupMessage = func(msg message.Reader) {}
+	}
+
 	if s.ServerMessageHandlers != nil {
 		s.ServerMessageHandlers.AddHandleBackendKeyData(func(ctx *Ctx, msg *message.BackendKeyData) (data *message.BackendKeyData, e error) {
 			ctx.ConnInfo.BackendProcessID = msg.ProcessID
@@ -125,6 +131,8 @@ func (s *Server) handleConn(ctx *Ctx, client net.Conn) (err error) {
 			return err
 		}
 		if m, ok := startup.(*message.CancelRequest); ok {
+			s.LogStartupMessage(m)
+
 			info, err := s.ConnInfoStore.Find(client.RemoteAddr(), m.ProcessID, m.SecretKey)
 			if info != nil {
 				if server, err = net.Dial("tcp", info.ServerAddress.String()); err == nil {
@@ -137,7 +145,9 @@ func (s *Server) handleConn(ctx *Ctx, client net.Conn) (err error) {
 			}
 			return err
 		}
-		if _, ok := startup.(*message.SSLRequest); ok {
+		if m, ok := startup.(*message.SSLRequest); ok {
+			s.LogStartupMessage(m)
+
 			if s.TLSConfig != nil {
 				client.Write([]byte{'S'})
 				client = tls.Server(client, s.TLSConfig)
@@ -147,6 +157,8 @@ func (s *Server) handleConn(ctx *Ctx, client net.Conn) (err error) {
 			continue
 		}
 		if m, ok := startup.(*message.StartupMessage); ok {
+			s.LogStartupMessage(m)
+
 			resolved := make(chan bool)
 			checking := make(chan error, 1)
 			go func() {
