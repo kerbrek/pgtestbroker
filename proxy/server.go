@@ -73,8 +73,8 @@ func (s *Server) Serve(ln net.Listener) error {
 		}
 		s.clients.Store(conn.LocalAddr().String(), conn)
 
+		s.wg.Add(1)
 		go func() {
-			s.wg.Add(1)
 			defer s.wg.Done()
 			defer conn.Close()
 			defer s.clients.Delete(conn.LocalAddr().String())
@@ -257,6 +257,8 @@ func (s *Server) readStartupMessage(client io.Reader) (message.Reader, error) {
 	return message.ReadStartupMessage(data)
 }
 
+var ErrSkipMsg = errors.New("skip message")
+
 func (s *Server) processMessages(ctx *Ctx, r io.Reader, w io.Writer, hg MessageHandlerRegister) (err error) {
 	rb := newMsgBuffer(r, 4096)
 	wb := bufio.NewWriter(w)
@@ -275,7 +277,7 @@ func (s *Server) processMessages(ctx *Ctx, r io.Reader, w io.Writer, hg MessageH
 		} else {
 			_, err = io.Copy(wb, bytes.NewReader(ms))
 		}
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrSkipMsg) {
 			return err
 		}
 		if rb.End() {
